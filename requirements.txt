@@ -1,0 +1,15 @@
+# ComicsEnhance - 漫画批量解包→画质增强→EPUB打包工具
+# Core dependencies
+
+# EPUB/MOBI/PDF extraction
+Pillow>=10.0.0
+
+# Waifu2x via Vulkan (GPU-accelerated)
+# sr-vulkan is pre-built, bundled in the project or installed separately
+# See: https://github.com/tonquer/sr-vulkan
+
+# Calibre (optional, for MOBI/PDF pre-conversion)
+# Install Calibre separately from https://calibre-ebook.com/
+# The CLI tool uses 'calibre-debug' subprocess to invoke ebook-convert
+
+# EPUB generation (standard library only: zipfile, xml.etree)

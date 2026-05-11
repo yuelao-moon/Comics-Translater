@@ -1,0 +1,37 @@
+# Build artifacts
+build/
+dist/
+*.spec
+*.pyc
+__pycache__/
+*.egg-info/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python cache
+*.pyo
+*.pyd
+.Python
+
+# Test outputs
+test/*_enhanced.epub
+test/Copy*
+test/*.txt
+test/__pycache__/
+output/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
