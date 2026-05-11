@@ -251,6 +251,12 @@ ComicsEnhance/
 - [kindleunpack-calibre-plugin](https://github.com/dougmassay/kindleunpack-calibre-plugin) — MOBI 解包
 - [sr-vulkan](https://github.com/tonquer/sr-vulkan) — Vulkan 超分辨率引擎
 
-## License
+## 赞助我
 
-MIT
+如果这个项目对你有帮助，欢迎自愿赞助我一杯咖啡，用于支持后续维护、功能开发和文档完善。
+
+感谢你的支持！
+
+![1778472902076](https://raw.githubusercontent.com/yuelao-moon/my-images/main/images/1778472902076.jpg)
+
+![mm_facetoface_collect_qrcode_1778472846813](https://raw.githubusercontent.com/yuelao-moon/my-images/main/images/mm_facetoface_collect_qrcode_1778472846813.png)
