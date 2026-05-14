@@ -136,6 +136,48 @@ def find_calibre_debug() -> str | None:
     return shutil.which("calibre-debug")
 
 
+def find_ebook_convert() -> str | None:
+    """Locate Calibre's ebook-convert executable."""
+    calibre_debug = find_calibre_debug()
+    exe = ".exe" if platform.system() == "Windows" else ""
+    if calibre_debug:
+        candidate = str(Path(calibre_debug).parent / f"ebook-convert{exe}")
+        if os.path.isfile(candidate):
+            return candidate
+
+    if platform.system() == "Windows":
+        for candidate in [
+            os.path.expandvars(r"%ProgramFiles%\Calibre2\ebook-convert.exe"),
+            os.path.expandvars(r"%ProgramFiles(x86)%\Calibre2\ebook-convert.exe"),
+        ]:
+            if os.path.isfile(candidate):
+                return candidate
+    elif platform.system() == "Darwin":
+        candidate = "/Applications/calibre.app/Contents/MacOS/ebook-convert"
+        if os.path.isfile(candidate):
+            return candidate
+
+    return shutil.which("ebook-convert")
+
+
+def find_kindlegen() -> str | None:
+    """Locate kindlegen, including the bundled KCC template copy if present."""
+    env_path = os.environ.get("KINDLEGEN_PATH")
+    if env_path and os.path.isfile(env_path):
+        return env_path
+
+    root = Path(__file__).resolve().parents[2]
+    bundled = root / "Template" / "Kindle Comic Converter（2022-5-17）" / "kindlegen.exe"
+    if bundled.is_file():
+        return str(bundled)
+
+    sibling = root.parent / "Template" / "Kindle Comic Converter（2022-5-17）" / "kindlegen.exe"
+    if sibling.is_file():
+        return str(sibling)
+
+    return shutil.which("kindlegen")
+
+
 def find_sr_vulkan():
     try:
         import importlib

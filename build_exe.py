@@ -55,8 +55,18 @@ def build(name: str, entry_script: str):
         "--hidden-import", "PIL",
         "--hidden-import", "PIL._imaging",
         "--hidden-import", "PIL._webp",
+        "--hidden-import", "PIL.JpegImagePlugin",
+        "--hidden-import", "PIL.PngImagePlugin",
+        "--hidden-import", "sqlite3",
+        "--hidden-import", "textual",
+        "--hidden-import", "textual.app",
+        "--hidden-import", "textual.widgets",
+        "--hidden-import", "textual.containers",
         # sr-vulkan (runtime detected)
         "--hidden-import", "sr_vulkan",
+        "--hidden-import", "comics_enhance.kpf_generator",
+        "--hidden-import", "comics_enhance.mobi_options",
+        "--hidden-import", "comics_enhance.mobi_preprocessor",
         # Exclude bloat
         "--exclude-module", "tkinter",
         "--exclude-module", "matplotlib",

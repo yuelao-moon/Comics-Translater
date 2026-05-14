@@ -12,4 +12,12 @@ Pillow>=10.0.0
 # Install Calibre separately from https://calibre-ebook.com/
 # The CLI tool uses 'calibre-debug' subprocess to invoke ebook-convert
 
-# EPUB generation (standard library only: zipfile, xml.etree)
+# EPUB/CBZ generation (standard library only: zipfile, xml.etree)
+
+# MOBI/KFX output (optional)
+# MOBI: Calibre ebook-convert, with kindlegen fallback if available
+# KFX: Calibre with the KFX Output plugin installed
+
+# Textual TUI
+rich>=13.0
+textual>=0.89

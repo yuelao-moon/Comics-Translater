@@ -32,6 +32,8 @@ from comics_enhance.config import (
     model_description,
     is_pillow_model,
     find_calibre_debug,
+    find_ebook_convert,
+    find_kindlegen,
     ensure_dirs,
 )
 from comics_enhance.epub_extractor import (
@@ -42,7 +44,7 @@ from comics_enhance.waifu2x_enhancer import (
     is_waifu2x_available,
     enhance_images_batch,
 )
-from comics_enhance.epub_packer import pack_epub
+from comics_enhance.packers import pack_outputs, parse_output_formats
 
 
 def _fmt_duration(seconds: float) -> str:
@@ -60,21 +62,27 @@ def process_single(
     output_format: str = WAIFU2X_OUTPUT_FORMAT,
     reading_direction: str = "rtl",
     language: str = "zh",
-) -> str:
+    output_formats: list[str] | None = None,
+    virtual_panels: str = "off",
+    facing_pages: bool = False,
+    facing_start: str = "single",
+    no_enhance: bool = False,
+) -> list[str]:
     """Process a single comic file through the full pipeline."""
+    output_formats = output_formats or ["epub"]
     input_name = Path(input_path).stem
     ext = Path(input_path).suffix.lower()
 
     if ext not in SUPPORTED_INPUT_FORMATS:
         print(f"  Skipping {input_path}: unsupported format '{ext}'")
-        return ""
+        return []
 
     if ext not in {".epub", ".cbz", ".zip"}:
         calibre = find_calibre_debug()
         if not calibre:
             print(f"  Error: Calibre required for {ext} files but not found.")
             print(f"  Install from https://calibre-ebook.com/")
-            return ""
+            return []
 
     # Resolve model
     desc = model_description(model_name)
@@ -115,50 +123,59 @@ def process_single(
         use_waifu2x = True  # always try, enhance_images_batch handles fallback
 
         tta_label = ", TTA on" if tta else ""
-        print(f"\n[2/3] Enhancing... ({desc}{tta_label})")
+        if no_enhance:
+            enhanced_paths = image_paths
+            print(f"\n[2/3] Enhancing... skipped")
+        else:
+            print(f"\n[2/3] Enhancing... ({desc}{tta_label})")
 
-        start_t = time.time()
-        enhanced_paths = enhance_images_batch(
-            image_paths=image_paths,
-            output_dir=enhanced_dir,
-            model=model_id,
-            scale=model_scale,
-            output_format=output_format,
-            tile_size=tile_size,
-            tta=tta,
-            force_pillow=force_pillow,
-        )
-        enhance_t = time.time() - start_t
-        print(f"    Enhanced {len(enhanced_paths)} images ({_fmt_duration(enhance_t)})")
+            start_t = time.time()
+            enhanced_paths = enhance_images_batch(
+                image_paths=image_paths,
+                output_dir=enhanced_dir,
+                model=model_id,
+                scale=model_scale,
+                output_format=output_format,
+                tile_size=tile_size,
+                tta=tta,
+                force_pillow=force_pillow,
+            )
+            enhance_t = time.time() - start_t
+            print(f"    Enhanced {len(enhanced_paths)} images ({_fmt_duration(enhance_t)})")
 
         # ── Step 3: Pack ──
-        print(f"\n[3/3] Packing EPUB...")
+        fmt_label = ", ".join(fmt.upper() for fmt in output_formats)
+        print(f"\n[3/3] Packing {fmt_label}...")
 
         os.makedirs(output_dir, exist_ok=True)
-        epub_name = f"{input_name}.epub"
-        epub_path = os.path.join(output_dir, epub_name)
 
         start_t = time.time()
-        pack_epub(
+        output_paths = pack_outputs(
             image_paths=enhanced_paths,
-            output_path=epub_path,
-            title=metadata.get("title", input_name),
-            author=metadata.get("author", ""),
+            output_dir=output_dir,
+            basename=input_name,
+            metadata=metadata,
+            formats=output_formats,
             language=language,
             reading_direction=reading_direction,
+            virtual_panels=virtual_panels,
+            facing_pages=facing_pages,
+            facing_start=facing_start,
         )
         pack_t = time.time() - start_t
 
-        epub_size_mb = os.path.getsize(epub_path) / (1024 * 1024)
-        print(f"    Output: {epub_path} ({epub_size_mb:.1f} MB, {pack_t:.1f}s)")
+        for output_path in output_paths:
+            size_mb = os.path.getsize(output_path) / (1024 * 1024)
+            print(f"    Output: {output_path} ({size_mb:.1f} MB)")
+        print(f"    Packed {len(output_paths)} format(s) ({pack_t:.1f}s)")
 
-        return epub_path
+        return output_paths
 
     except Exception as e:
         print(f"\n  Error processing {input_path}: {e}")
         import traceback
         traceback.print_exc()
-        return ""
+        return []
 
     finally:
         try:
@@ -193,7 +210,7 @@ def _model_autocomplete() -> str:
 def main():
     parser = argparse.ArgumentParser(
         description="ComicsEnhance — Batch comic/manga processing: "
-                    "unpack, enhance (Waifu2x/RealESRGAN), pack as EPUB",
+                    "unpack, enhance (Waifu2x/RealESRGAN), pack as EPUB/CBZ/MOBI/KFX",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""
 Models (--model):
@@ -205,6 +222,8 @@ Examples:
   comics-enhance --model realesr-anime --tta comic.cbz
   comics-enhance --model photo-n1 --format png manga.epub
   comics-enhance --no-enhance manga.pdf
+  comics-enhance --output-format epub,cbz manga.epub
+  comics-enhance --output-format kfx --virtual-panels horizontal manga.epub
         """,
     )
 
@@ -214,7 +233,11 @@ Examples:
     )
     parser.add_argument(
         "--output", "-o", default=".",
-        help="Output directory for enhanced EPUB files (default: current dir)",
+        help="Output directory for enhanced files (default: current dir)",
+    )
+    parser.add_argument(
+        "--output-format", default="epub",
+        help="Comma-separated output formats: epub, cbz, mobi, kfx (default: epub)",
     )
     parser.add_argument(
         "--direction", choices=["rtl", "ltr"], default="rtl",
@@ -223,6 +246,18 @@ Examples:
     parser.add_argument(
         "--language", "-l", default="zh",
         help="Book language code (default: zh)",
+    )
+    parser.add_argument(
+        "--virtual-panels", choices=["off", "horizontal", "vertical"], default="off",
+        help="KFX virtual panel navigation mode (default: off)",
+    )
+    parser.add_argument(
+        "--facing-pages", action="store_true",
+        help="KFX: enable facing pages/spreads for landscape reading",
+    )
+    parser.add_argument(
+        "--facing-start", choices=["single", "double"], default="single",
+        help="KFX facing-pages start mode (default: single)",
     )
 
     enhance_group = parser.add_argument_group("Enhancement options")
@@ -256,6 +291,10 @@ Examples:
 
     args = parser.parse_args()
     ensure_dirs()
+    try:
+        output_formats = parse_output_formats(args.output_format)
+    except ValueError as e:
+        parser.error(str(e))
 
     # Check sr-vulkan
     if not args.no_enhance:
@@ -273,36 +312,32 @@ Examples:
     if has_non_epub and not find_calibre_debug():
         print("Warning: Calibre not found. MOBI/AZW/PDF files will fail.")
         print("  Install from: https://calibre-ebook.com/")
+    if "mobi" in output_formats and not (find_ebook_convert() or find_kindlegen()):
+        print("Warning: MOBI output requested, but neither Calibre ebook-convert nor kindlegen was found.")
+    if "kfx" in output_formats and not find_calibre_debug():
+        print("Warning: KFX output requested, but Calibre calibre-debug was not found.")
+        print("  KFX also requires the Calibre KFX Output plugin.")
 
     # Process
     total_start = time.time()
     success = fail = 0
 
     for input_file in args.input_files:
-        if args.no_enhance:
-            # Skip enhancement — pass model=none, enhance_images_batch fallback
-            result = process_single(
-                input_path=input_file,
-                output_dir=args.output,
-                model_name=DEFAULT_MODEL,
-                tile_size=args.tile_size,
-                tta=args.tta,
-                output_format=args.format,
-                reading_direction=args.direction,
-                language=args.language,
-            )
-        else:
-            model_name = args.model
-            result = process_single(
-                input_path=input_file,
-                output_dir=args.output,
-                model_name=model_name,
-                tile_size=args.tile_size,
-                tta=args.tta,
-                output_format=args.format,
-                reading_direction=args.direction,
-                language=args.language,
-            )
+        result = process_single(
+            input_path=input_file,
+            output_dir=args.output,
+            model_name=args.model,
+            tile_size=args.tile_size,
+            tta=args.tta,
+            output_format=args.format,
+            reading_direction=args.direction,
+            language=args.language,
+            output_formats=output_formats,
+            virtual_panels=args.virtual_panels,
+            facing_pages=args.facing_pages,
+            facing_start=args.facing_start,
+            no_enhance=args.no_enhance,
+        )
         if result:
             success += 1
         else:
